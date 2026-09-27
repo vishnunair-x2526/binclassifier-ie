@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bin Sorter">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.svg">
+<title>Dublin Bin Sorter</title>
+<style>
+:root {
+  --g: #1e7a4a; --g-l: #e6f6ed; --g-m: #52b97a;
+  --b: #7a4820; --b-l: #f5ece3; --b-m: #c4834a;
+  --k: #2a2a2a; --k-l: #ebebeb; --k-m: #888;
+  --bg: #f4f4f0; --surf: #fff; --txt: #111; --muted: #666;
+  --bdr: #e0e0d8; --r: 14px;
+  --safe-t: env(safe-area-inset-top,0px);
+  --safe-b: env(safe-area-inset-bottom,0px);
+}
+@media(prefers-color-scheme:dark){
+  :root{ --bg:#111; --surf:#1c1c1c; --txt:#f0f0f0; --muted:#888; --bdr:#2a2a2a;
+    --g-l:#0d2e1c; --b-l:#2a1a0a; --k-l:#222; }
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overscroll-behavior:none;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:var(--bg);color:var(--txt);
+  padding-top:calc(var(--safe-t) + 0px);
+  padding-bottom:calc(var(--safe-b) + 70px);}
+
+/* NAV */
+.nav{position:fixed;bottom:0;left:0;right:0;
+  background:var(--surf);border-top:1px solid var(--bdr);
+  padding-bottom:var(--safe-b);
+  display:flex;z-index:100;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;
+  gap:3px;padding:10px 4px 8px;border:none;background:none;
+  color:var(--muted);font-size:10px;font-weight:500;cursor:pointer;
+  transition:color .15s;}
+.nav-btn.active{color:var(--g);}
+.nav-btn svg{width:22px;height:22px;}
+
+/* PAGES */
+.page{display:none;padding:20px 16px;max-width:600px;margin:0 auto;}
+.page.active{display:block;}
+
+/* HEADER */
+.page-header{margin-bottom:20px;}
+.page-title{font-size:22px;font-weight:700;letter-spacing:-.4px;}
+.page-sub{font-size:13px;color:var(--muted);margin-top:3px;}
+
+/* SEARCH */
+.search-wrap{position:relative;margin-bottom:12px;}
+.search-wrap input{width:100%;padding:13px 44px 13px 14px;
+  font-size:16px;border:1.5px solid var(--bdr);border-radius:var(--r);
+  background:var(--surf);color:var(--txt);outline:none;
+  transition:border-color .15s;}
+.search-wrap input:focus{border-color:var(--g);}
+.search-clear{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;
+  display:none;}
+.search-clear.show{display:block;}
+
+/* RESULT CARD */
+.result-card{background:var(--surf);border:1px solid var(--bdr);
+  border-radius:var(--r);overflow:hidden;margin-bottom:12px;
+  animation:pop .2s ease;}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.rc-head{padding:16px;display:flex;align-items:center;gap:12px;}
+.rc-icon{width:48px;height:48px;border-radius:10px;display:flex;
+  align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.rc-icon.green{background:var(--g-l);}
+.rc-icon.brown{background:var(--b-l);}
+.rc-icon.black{background:var(--k-l);}
+.rc-icon.special{background:#fff3cd;}
+.rc-label{font-size:11px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:3px;}
+.rc-label.green{color:var(--g);}
+.rc-label.brown{color:var(--b);}
+.rc-label.black{color:var(--k-m);}
+.rc-label.special{color:#b07d00;}
+.rc-name{font-size:17px;font-weight:600;letter-spacing:-.2px;}
+.rc-body{padding:0 16px 16px;}
+.rc-reason{font-size:14px;line-height:1.55;color:var(--txt);}
+.rc-cost{display:inline-flex;align-items:center;gap:5px;
+  margin-top:10px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;}
+.rc-cost.low{background:var(--g-l);color:var(--g);}
+.rc-cost.med{background:var(--b-l);color:var(--b);}
+.rc-cost.high{background:#fde8e8;color:#c0392b;}
+.rc-tip{margin-top:8px;padding:9px 12px;background:var(--bg);
+  border-radius:8px;font-size:13px;color:var(--muted);line-height:1.5;}
+
+/* QUICK CHIPS */
+.chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.chip{padding:6px 12px;border:1px solid var(--bdr);border-radius:20px;
+  font-size:13px;background:var(--surf);color:var(--txt);cursor:pointer;
+  font-family:inherit;transition:background .12s;}
+.chip:hover{background:var(--bdr);}
+
+/* CAMERA */
+.cam-area{border:2px dashed var(--bdr);border-radius:var(--r);
+  text-align:center;padding:32px 16px;margin-bottom:16px;cursor:pointer;
+  transition:border-color .15s;background:var(--surf);}
+.cam-area:hover{border-color:var(--g);}
+.cam-area.drag{border-color:var(--g);background:var(--g-l);}
+.cam-emoji{font-size:36px;margin-bottom:8px;}
+.cam-label{font-size:14px;color:var(--muted);}
+.cam-label strong{color:var(--txt);}
+#cam-input{display:none;}
+.preview-img{width:100%;max-height:260px;object-fit:cover;
+  border-radius:var(--r);margin-bottom:12px;display:none;}
+.model-status{font-size:12px;color:var(--muted);text-align:center;
+  padding:6px;margin-bottom:8px;}
+.model-bar{height:3px;background:var(--bdr);border-radius:2px;margin-bottom:12px;overflow:hidden;}
+.model-fill{height:100%;width:0%;background:var(--g);transition:width .3s;}
+
+/* BATCH */
+.batch-input{width:100%;height:140px;padding:12px 14px;
+  font-size:14px;font-family:inherit;border:1.5px solid var(--bdr);
+  border-radius:var(--r);background:var(--surf);color:var(--txt);
+  outline:none;resize:none;line-height:1.6;transition:border-color .15s;}
+.batch-input:focus{border-color:var(--g);}
+.batch-btn{width:100%;padding:13px;background:var(--g);color:#fff;
+  border:none;border-radius:var(--r);font-size:15px;font-weight:600;
+  font-family:inherit;cursor:pointer;margin:10px 0;
+  transition:opacity .15s;}
+.batch-btn:hover{opacity:.88;}
+.batch-results{display:flex;flex-direction:column;gap:8px;}
+.batch-row{display:flex;align-items:center;gap:10px;padding:12px 14px;
+  background:var(--surf);border:1px solid var(--bdr);border-radius:10px;
+  animation:pop .15s ease;}
+.b-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.b-name{flex:1;font-size:14px;font-weight:500;}
+.b-bin{font-size:12px;font-weight:600;padding:3px 9px;border-radius:12px;}
+.b-bin.green{background:var(--g-l);color:var(--g);}
+.b-bin.brown{background:var(--b-l);color:var(--b);}
+.b-bin.black{background:var(--k-l);color:var(--k-m);}
+.b-bin.special{background:#fff3cd;color:#b07d00;}
+.batch-summary{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.sum-pill{padding:5px 12px;border-radius:20px;font-size:13px;font-weight:600;}
+
+/* GUIDE */
+.guide-bin{background:var(--surf);border:1px solid var(--bdr);
+  border-radius:var(--r);margin-bottom:12px;overflow:hidden;}
+.guide-head{padding:14px 16px;display:flex;align-items:center;gap:10px;
+  cursor:pointer;}
+.guide-emoji{font-size:20px;}
+.guide-title{font-size:16px;font-weight:600;flex:1;}
+.guide-chevron{color:var(--muted);transition:transform .2s;}
+.guide-body{display:none;padding:0 16px 14px;border-top:1px solid var(--bdr);}
+.guide-body.open{display:block;}
+.guide-section{margin-top:12px;}
+.guide-section-title{font-size:12px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:6px;}
+.yes{color:var(--g);} .no{color:#c0392b;}
+.guide-items{list-style:none;display:flex;flex-direction:column;gap:4px;}
+.guide-items li{font-size:13px;line-height:1.5;padding-left:16px;position:relative;}
+.guide-items li::before{content:'•';position:absolute;left:4px;color:var(--muted);}
+.offline-badge{display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;background:var(--g-l);color:var(--g);
+  border-radius:20px;font-size:12px;font-weight:600;margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<!-- PAGE: SORT -->
+<div class="page active" id="page-sort">
+  <div class="page-header">
+    <div class="offline-badge">⚡ Works offline</div>
+    <div class="page-title">What bin does it go in?</div>
+    <div class="page-sub">Type any item — instant answer, no internet needed.</div>
+  </div>
+  <div class="search-wrap">
+    <input type="text" id="sort-input" placeholder="e.g. pizza box, nappy, milk carton…"
+      autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="search-clear" id="sort-clear" onclick="clearSort()">✕</button>
+  </div>
+  <div class="chip-row" id="chip-row"></div>
+  <div id="sort-result"></div>
+</div>
+
+<!-- PAGE: CAMERA -->
+<div class="page" id="page-camera">
+  <div class="page-header">
+    <div class="page-title">📷 Scan an item</div>
+    <div class="page-sub">Take a photo or upload — identified on-device, no internet.</div>
+  </div>
+  <div class="model-status" id="model-status">Loading vision model…</div>
+  <div class="model-bar"><div class="model-fill" id="model-fill"></div></div>
+  <div class="cam-area" id="cam-area" onclick="document.getElementById('cam-input').click()">
+    <div class="cam-emoji">📷</div>
+    <div class="cam-label"><strong>Tap to take a photo</strong> or upload an image</div>
+  </div>
+  <input type="file" id="cam-input" accept="image/*" capture="environment">
+  <img class="preview-img" id="preview-img" alt="Preview">
+  <div id="cam-result"></div>
+</div>
+
+<!-- PAGE: BATCH -->
+<div class="page" id="page-batch">
+  <div class="page-header">
+    <div class="page-title">📋 Sort a list</div>
+    <div class="page-sub">Paste your shopping list or type items, one per line.</div>
+  </div>
+  <textarea class="batch-input" id="batch-input"
+    placeholder="banana peels&#10;milk carton&#10;nappy&#10;glass bottle&#10;pizza box&#10;tea bags"></textarea>
+  <button class="batch-btn" onclick="runBatch()">Sort all items</button>
+  <div class="batch-summary" id="batch-summary"></div>
+  <div class="batch-results" id="batch-results"></div>
+</div>
+
+<!-- PAGE: GUIDE -->
+<div class="page" id="page-guide">
+  <div class="page-header">
+    <div class="page-title">📖 Bin Guide</div>
+    <div class="page-sub">Dublin / Greyhound Recycling — tap a bin to expand.</div>
+  </div>
+  <div id="guide-content"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="nav">
+  <button class="nav-btn active" onclick="showPage('sort',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    Sort
+  </button>
+  <button class="nav-btn" onclick="showPage('camera',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    Camera
+  </button>
+  <button class="nav-btn" onclick="showPage('batch',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Batch
+  </button>
+  <button class="nav-btn" onclick="showPage('guide',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    Guide
+  </button>
+</nav>
+
+<script>
+// ─────────────────────────────────────────────
+// RULE ENGINE — comprehensive Dublin bin rules
+// ─────────────────────────────────────────────
+const RULES = [
+  // GREEN BIN
+  {k:['newspaper','newspapers','news paper','magazine','magazines','leaflet','leaflets','letter','letters','junk mail','flyer','flyers','paper','white paper','office paper','printing paper','copy paper','notebook paper','school paper'],b:'green',r:'Paper is recyclable in the green bin. Keep it dry and loose — no plastic bags.',cost:'low',tip:'Shred confidential paper first, then recycle.'},
+  {k:['cardboard','cardboard box','flat pack','flatpack','cereal box','cereal boxes','cornflake box','shipping box','amazon box','delivery box','pizza box clean','clean pizza box','egg carton','egg box','juice carton','milk carton','tetra pak','tetra pack','carton','oat milk carton','soup carton'],b:'green',r:'Clean, dry cardboard and cartons go in the green bin. Flatten boxes to save space.',cost:'low',tip:'Make sure the pizza box is not greasy — if it is, it goes in the black bin.'},
+  {k:['plastic bottle','shampoo bottle','conditioner bottle','detergent bottle','washing up liquid','bleach bottle','milk bottle','water bottle','fizzy drink bottle','soft drink bottle','juice bottle','yoghurt pot','yogurt pot','margarine tub','butter tub','ice cream tub','plastic container','plastic tub','plastic pot'],b:'green',r:'Plastic bottles and containers are recyclable. Give them a quick rinse.',cost:'low',tip:'You don\'t need to remove labels, but do remove lids (recycle them separately if possible).'},
+  {k:['aluminium can','aluminum can','tin can','beer can','coke can','soda can','drinks can','soup tin','baked beans tin','food tin','tuna tin','sardine tin','pet food tin','cat food tin','dog food tin','aerosol can','deodorant can','hair spray can','spray can'],b:'green',r:'Metal cans and tins are fully recyclable. Rinse out any food residue.',cost:'low'},
+  {k:['tin foil','aluminium foil','aluminum foil','foil tray','foil container'],b:'green',r:'Clean tin foil and foil trays are recyclable. Scrunch foil into a ball before putting it in.',cost:'low',tip:'Only if clean — food-soiled foil goes in the black bin.'},
+  {k:['cardboard tube','toilet roll tube','kitchen roll tube','paper towel tube','wrapping paper tube'],b:'green',r:'Cardboard tubes are recyclable — just pop them in the green bin.',cost:'low'},
+
+  // BROWN BIN
+  {k:['banana','banana peel','banana skin','apple','apple core','orange','orange peel','lemon','lime peel','grape','grapes','strawberry','strawberries','pear','peach','plum','melon','watermelon','pineapple','mango','kiwi','fruit','fruit peel','fruit scraps','fruit waste'],b:'brown',r:'All fruit and fruit peelings go in the brown bin — they\'ll be composted into rich soil.',cost:'med'},
+  {k:['vegetable','vegetables','veg','veggie','carrot','carrot peel','potato','potato peel','onion','onion skin','garlic','garlic skin','broccoli','cauliflower','cabbage','lettuce','spinach','salad leaves','cucumber','courgette','pepper','tomato','tomatoes','celery','leek','parsnip','turnip','raw veg','cooked veg','veg scraps','vegetable peelings'],b:'brown',r:'Vegetable scraps and peelings are perfect for the brown bin — cooked or raw.',cost:'med'},
+  {k:['meat','chicken','chicken bones','beef','pork','lamb','fish','fish bones','shellfish','prawn','prawns','shrimp','cooked meat','raw meat','leftover meat','deli meat','ham','bacon','sausage','sausages'],b:'brown',r:'Meat and fish — including cooked leftovers and bones — all go in the brown bin.',cost:'med'},
+  {k:['tea bag','tea bags','teabag','teabags','loose tea','used tea','herbal tea bag'],b:'brown',r:'Used tea bags go in the brown bin (most modern tea bags are compostable). If in doubt, check if the bag is plastic-free.',cost:'med'},
+  {k:['coffee grounds','coffee ground','used coffee','coffee filter','coffee pod compostable','coffee pods compostable'],b:'brown',r:'Coffee grounds and paper coffee filters are great for the brown bin.',cost:'med'},
+  {k:['egg shells','eggshells','egg shell','eggshell','eggs shells'],b:'brown',r:'Egg shells break down well in the brown bin — a great compost ingredient.',cost:'med'},
+  {k:['bread','stale bread','bread crusts','bread crust','toast','mouldy bread','cake','biscuits','biscuit','crackers','rice','pasta','noodles','cereal','porridge','oats','leftovers','cooked food','plate scrapings','food scraps','food waste','leftover food'],b:'brown',r:'All cooked food scraps and leftovers belong in the brown bin.',cost:'med'},
+  {k:['grass clippings','grass cuttings','cut grass','lawn clippings','leaves','fallen leaves','dead leaves','hedge clippings','small branches','garden waste','weeds','plant cuttings','flowers','dead flowers','house plants','soil','compost'],b:'brown',r:'Garden waste including grass, leaves, and small branches go in the brown bin.',cost:'med'},
+  {k:['compostable bag','compostable bags','biodegradable bag','compostable liner','bio bag'],b:'brown',r:'Compostable bags are fine for lining your brown bin.',cost:'med'},
+  {k:['paper bag','brown paper bag','paper bags'],b:'brown',r:'Paper bags can go in the brown bin (or the green bin if clean and dry).',cost:'low'},
+
+  // BLACK BIN
+  {k:['nappy','nappies','diaper','diapers','pull up','pull-up nappies','nappy sacks'],b:'black',r:'Nappies and nappy sacks must go in the black bin — they cannot be recycled or composted.',cost:'high',tip:'Nappies are one of the biggest contributors to black bin weight. Reusable nappies could save you on lift costs.'},
+  {k:['tissue','tissues','paper tissue','paper tissues','paper towel','kitchen roll','kitchen paper','dirty paper','soiled paper','used tissue','facial tissue'],b:'black',r:'Used tissues and paper towels go in the black bin as they\'re contaminated.',cost:'high',tip:'Kitchen roll tubes go in the green bin — just the roll itself is black bin.'},
+  {k:['crisp packet','crisp packets','crisps packet','chip packet','snack wrapper','sweet wrapper','sweet wrappers','biscuit wrapper','chocolate wrapper','foil wrapper','soiled cling film','cling film','plastic wrap','bubble wrap','polystyrene','styrofoam','expanded polystyrene','plastic film','carrier bag','plastic bag','sandwich bag','ziplock bag'],b:'black',r:'Non-recyclable plastics like crisp packets, wrappers, and cling film go in the black bin.',cost:'high',tip:'Buy loose fruit and veg to cut down on the plastic packaging heading for your black bin.'},
+  {k:['greasy pizza box','dirty pizza box','oily pizza box','soiled cardboard','soiled food packaging','greasy food box','takeaway box','takeaway container','dirty container','used paper plate','paper plate'],b:'black',r:'Food-soiled packaging cannot be recycled and must go in the black bin.',cost:'high',tip:'If only the bottom of a pizza box is greasy, tear off the clean top and recycle it in the green bin.'},
+  {k:['nappies','sanitary pad','sanitary pads','tampon','tampons','sanitary towel','sanitary products','personal hygiene products'],b:'black',r:'Sanitary products go in the black bin.',cost:'high'},
+  {k:['broken glass','shards','ceramic','ceramics','pottery','crockery','broken cup','broken plate','broken mug','mirror'],b:'black',r:'Broken glass, ceramics, and crockery go in the black bin, wrapped safely in newspaper.',cost:'high',tip:'Wrap sharp broken items in newspaper or cardboard before placing in the black bin.'},
+  {k:['cotton buds','cotton bud','q-tip','q-tips','cotton swabs','cotton wool','make up wipes','makeup wipes','makeup remover wipes','baby wipes','wet wipes','wipes','wet wipe','face wipes'],b:'black',r:'Wipes and cotton products always go in the black bin — even "flushable" wipes.',cost:'high'},
+  {k:['noodle cup','pot noodle','instant noodle pot','ready meal tray','microwave meal tray'],b:'black',r:'Used ready meal trays and noodle pots are usually soiled and go in the black bin.',cost:'high'},
+  {k:['black plastic','black plastic tray','dark plastic','dark plastic tray'],b:'black',r:'Black plastic trays cannot be sorted by recycling machinery and go in the black bin.',cost:'high',tip:'Choose products in clear or coloured plastic packaging where possible — those are recyclable.'},
+
+  // GLASS — bottle bank, not any bin
+  {k:['glass bottle','wine bottle','beer bottle','spirit bottle','whiskey bottle','vodka bottle','gin bottle','jam jar','glass jar','pickle jar','sauce jar','pasta sauce jar','glass','glass cup','drinking glass','wine glass','pint glass'],b:'special',r:'Glass goes to your nearest bottle bank, not any of the three bins. Greyhound doesn\'t collect glass in bins — use a local bottle bank.',cost:'low',tip:'Find your nearest bottle bank at mywaste.ie'},
+
+  // SPECIAL DISPOSAL
+  {k:['battery','batteries','aa battery','aaa battery','button battery','car battery','laptop battery'],b:'special',r:'Batteries are hazardous — take them to a supermarket battery recycling point or your local bring centre.',cost:'low',tip:'Most supermarkets (Tesco, Lidl, Aldi) have a free battery collection box near the entrance.'},
+  {k:['light bulb','lightbulb','energy saving bulb','led bulb','cfl bulb','fluorescent tube','fluorescent bulb'],b:'special',r:'Old bulbs go to a bring centre or hardware store collection point — not any bin.',cost:'low'},
+  {k:['paint','paint tin','paint can','paint pot','leftover paint','old paint'],b:'special',r:'Paint is hazardous waste. Take it to your local bring centre — never pour it down the drain.',cost:'low'},
+  {k:['phone','mobile phone','old phone','smartphone','tablet','ipad','laptop','computer','tv','television','monitor','printer','electronic','electronics','ewaste','e-waste','small appliance','toaster','kettle','iron','hairdryer','cables','wires','charger'],b:'special',r:'Electronics (WEEE waste) must go to a bring centre or retailer take-back scheme — never in any bin.',cost:'low',tip:'Many retailers (Currys, Argos) take back old electronics for free when you buy a new item.'},
+  {k:['medication','medicines','pills','tablets','prescription','old medicine','unused medicine'],b:'special',r:'Return unused or expired medication to your local pharmacy — never put it in any bin or down the drain.',cost:'low'},
+  {k:['cooking oil','used oil','frying oil','vegetable oil','engine oil','motor oil'],b:'special',r:'Cooking oil should be cooled, bottled, and taken to a bring centre. Never pour oil down the drain or in any bin.',cost:'low'},
+  {k:['clothes','clothing','t-shirt','jeans','shoes','shoe','boots','coat','jacket','jumper','dress','textile','textiles','fabric','curtains','bedsheet','duvet'],b:'special',r:'Donate wearable clothes to charity shops or clothing banks. For worn-out textiles, use a bring centre textile bank.',cost:'low'},
+  {k:['cardboard pizza box','pizza box'],b:'conditional',r:'Depends on condition: a clean pizza box → green bin. A greasy pizza box → black bin.',cost:'low',tip:'Tear off the clean lid for the green bin and put the greasy base in the black bin.'},
+];
+
+const QUICK = ['Banana peel','Tea bag','Nappy','Milk carton','Pizza box','Glass bottle','Crisp packet','Cardboard box','Coffee grounds','Tin can'];
+
+const GUIDE_DATA = [
+  {bin:'green',emoji:'♻️',label:'Green Bin — Recycling',cost:'Lowest lift cost',
+    yes:['Newspapers, magazines, paper','Cardboard — flattened','Plastic bottles & containers (rinsed)','Aluminium/tin cans','Tetra Pak/juice cartons (rinsed)','Tin foil (clean)'],
+    no:['Glass (→ bottle bank)','Greasy or food-soiled items','Polystyrene','Clothing','Plastic bags or cling film']},
+  {bin:'brown',emoji:'🍂',label:'Brown Bin — Organic Waste',cost:'Low lift cost',
+    yes:['All fruit & vegetable scraps','Meat, fish & bones (cooked or raw)','Tea bags & coffee grounds','Bread, rice, pasta, cooked food','Garden waste (grass, leaves, small branches)','Egg shells'],
+    no:['Plastic bags (use compostable liners)','Liquids — oil, milk, soup','Glass or metal','Non-compostable packaging']},
+  {bin:'black',emoji:'🗑️',label:'Black Bin — General Waste',cost:'HIGHEST lift cost — minimise!',
+    yes:['Nappies & sanitary products','Tissues & paper towels','Crisp packets & sweet wrappers','Cling film & plastic bags','Soiled food packaging','Black plastic trays','Broken ceramics (wrapped)'],
+    no:['Recyclables (→ green)','Food waste (→ brown)','Glass (→ bottle bank)','Batteries, bulbs, paint (→ bring centre)','Electronics (→ bring centre)']},
+  {bin:'special',emoji:'⚠️',label:'Special / Bring Centre',cost:'Don\'t put in any bin',
+    yes:['Glass bottles & jars (→ bottle bank)','Batteries (→ supermarket collection)','Electronics / WEEE (→ bring centre)','Paint (→ bring centre)','Medication (→ pharmacy)','Clothes (→ charity/bank)'],
+    no:[]},
+];
+
+// ─────────────────────────────────────────────
+// MATCHING ENGINE
+// ─────────────────────────────────────────────
+function normalise(s){ return s.toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim(); }
+
+function findRule(query){
+  const q = normalise(query);
+  if(!q) return null;
+
+  // 1. exact match
+  for(const rule of RULES){
+    if(rule.k.some(k => normalise(k) === q)) return rule;
+  }
+  // 2. keyword contains query or query contains keyword
+  for(const rule of RULES){
+    if(rule.k.some(k => { const nk = normalise(k); return nk.includes(q) || q.includes(nk); })) return rule;
+  }
+  // 3. word-overlap scoring
+  const qWords = new Set(q.split(' ').filter(w => w.length > 2));
+  let best = null, bestScore = 0;
+  for(const rule of RULES){
+    for(const k of rule.k){
+      const kWords = normalise(k).split(' ').filter(w => w.length > 2);
+      const overlap = kWords.filter(w => qWords.has(w)).length;
+      if(overlap > bestScore){ bestScore = overlap; best = rule; }
+    }
+  }
+  if(bestScore >= 1) return best;
+  return null;
+}
+
+const BIN_CONFIG = {
+  green:  {label:'Green Bin',emoji:'♻️',dot:'#1e7a4a',costClass:'low',costLabel:'💚 Low lift cost'},
+  brown:  {label:'Brown Bin',emoji:'🍂',dot:'#7a4820',costClass:'med',costLabel:'🟡 Medium lift cost'},
+  black:  {label:'Black Bin',emoji:'🗑️',dot:'#2a2a2a',costClass:'high',costLabel:'🔴 High lift cost'},
+  special:{label:'Special Disposal',emoji:'⚠️',dot:'#b07d00',costClass:'low',costLabel:'ℹ️ Not in any bin'},
+  conditional:{label:'Depends on condition',emoji:'🤔',dot:'#888',costClass:'low',costLabel:'ℹ️ See tip below'},
+};
+
+function renderCard(rule, itemName){
+  const cfg = BIN_CONFIG[rule.b] || BIN_CONFIG.black;
+  return `<div class="result-card">
+    <div class="rc-head">
+      <div class="rc-icon ${rule.b === 'conditional' ? 'special' : rule.b}">${cfg.emoji}</div>
+      <div>
+        <div class="rc-label ${rule.b === 'special' || rule.b === 'conditional' ? 'special' : rule.b}">${cfg.label}</div>
+        <div class="rc-name">${esc(itemName)}</div>
+      </div>
+    </div>
+    <div class="rc-body">
+      <div class="rc-reason">${esc(rule.r)}</div>
+      <span class="rc-cost ${rule.cost}">${cfg.costLabel}</span>
+      ${rule.tip ? `<div class="rc-tip">💡 ${esc(rule.tip)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderNotFound(q){
+  return `<div class="result-card">
+    <div class="rc-head">
+      <div class="rc-icon black">🤷</div>
+      <div>
+        <div class="rc-label black">Not found</div>
+        <div class="rc-name">${esc(q)}</div>
+      </div>
+    </div>
+    <div class="rc-body">
+      <div class="rc-reason">Not sure about this one. When in doubt, use the black bin — or check mywaste.ie for Ireland's full guide.</div>
+      <div class="rc-tip">💡 If it's clean and dry → try green. If it's food waste → try brown. If in doubt → black.</div>
+    </div>
+  </div>`;
+}
+
+// ─────────────────────────────────────────────
+// SORT PAGE
+// ─────────────────────────────────────────────
+const sortInput = document.getElementById('sort-input');
+const sortClear = document.getElementById('sort-clear');
+const sortResult = document.getElementById('sort-result');
+
+sortInput.addEventListener('input', () => {
+  const q = sortInput.value.trim();
+  sortClear.classList.toggle('show', q.length > 0);
+  if(q.length < 2){ sortResult.innerHTML = ''; return; }
+  const rule = findRule(q);
+  sortResult.innerHTML = rule ? renderCard(rule, q) : renderNotFound(q);
+});
+sortInput.addEventListener('keydown', e => { if(e.key==='Enter') sortInput.blur(); });
+
+function clearSort(){
+  sortInput.value = '';
+  sortClear.classList.remove('show');
+  sortResult.innerHTML = '';
+  sortInput.focus();
+}
+
+// Chips
+const chipRow = document.getElementById('chip-row');
+QUICK.forEach(item => {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.textContent = item;
+  b.onclick = () => {
+    sortInput.value = item;
+    sortClear.classList.add('show');
+    const rule = findRule(item);
+    sortResult.innerHTML = rule ? renderCard(rule, item) : renderNotFound(item);
+    showPage('sort', document.querySelector('.nav-btn.active'));
+  };
+  chipRow.appendChild(b);
+});
+
+// ─────────────────────────────────────────────
+// CAMERA + MobileNet (TensorFlow.js)
+// ─────────────────────────────────────────────
+let tfModel = null;
+let tfReady = false;
+
+function loadTF(){
+  const status = document.getElementById('model-status');
+  const fill = document.getElementById('model-fill');
+  status.textContent = 'Loading vision model (first time only)…';
+  fill.style.width = '10%';
+
+  // Load TF.js + MobileNet via CDN
+  const s1 = document.createElement('script');
+  s1.src = 'https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.17.0/tf.min.js';
+  s1.onload = () => {
+    fill.style.width = '40%';
+    const s2 = document.createElement('script');
+    s2.src = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js';
+    s2.onload = async () => {
+      fill.style.width = '70%';
+      status.textContent = 'Initialising model…';
+      try {
+        tfModel = await mobilenet.load();
+        tfReady = true;
+        fill.style.width = '100%';
+        status.textContent = '✅ Vision model ready — take a photo!';
+        setTimeout(() => { fill.style.opacity = 0; status.style.opacity = 0; }, 2000);
+      } catch(e) {
+        status.textContent = '⚠️ Model failed to load. Use text search instead.';
+      }
+    };
+    document.head.appendChild(s2);
+  };
+  s1.onerror = () => { status.textContent = '⚠️ Could not load model. Are you online for first load?'; };
+  document.head.appendChild(s1);
+}
+
+// Map ImageNet class names to bin rules
+function classToQuery(className){
+  const name = className.toLowerCase();
+  // Fruit/veg
+  if(/banana|apple|orange|lemon|strawberr|grape|melon|mango|pineapple|broccoli|carrot|potato|tomato|corn|mushroom|cucumber|pepper|zucchini|squash/.test(name)) return 'vegetable scraps';
+  // Meat/fish
+  if(/meat|chicken|fish|steak|burger|sausage|pork|beef|shrimp|crab|lobster/.test(name)) return 'meat';
+  // Bottle/can
+  if(/bottle|beer bottle|wine bottle/.test(name)) return 'glass bottle';
+  if(/can|tin can|soda can/.test(name)) return 'tin can';
+  if(/plastic bottle|water bottle/.test(name)) return 'plastic bottle';
+  // Paper/cardboard
+  if(/newspaper|book|magazine|paper/.test(name)) return 'newspaper';
+  if(/cardboard|box/.test(name)) return 'cardboard box';
+  // Electronics
+  if(/phone|laptop|computer|monitor|keyboard|mouse|remote|television/.test(name)) return 'mobile phone';
+  // Clothes
+  if(/shirt|dress|jeans|shoe|sock|jacket|coat|sweater/.test(name)) return 'clothes';
+  // Other
+  if(/pizza/.test(name)) return 'pizza box';
+  if(/cup|coffee/.test(name)) return 'coffee grounds';
+  if(/bag/.test(name)) return 'plastic bag';
+  return name;
+}
+
+document.getElementById('cam-input').addEventListener('change', async function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const img = document.getElementById('preview-img');
+  const camResult = document.getElementById('cam-result');
+  const reader = new FileReader();
+  reader.onload = ev => { img.src = ev.target.result; img.style.display = 'block'; };
+  reader.readAsDataURL(file);
+
+  if(!tfReady){
+    camResult.innerHTML = '<div class="result-card"><div class="rc-body"><div class="rc-reason">Vision model not ready yet. Try again in a moment, or use text search.</div></div></div>';
+    return;
+  }
+
+  camResult.innerHTML = '<div class="result-card"><div class="rc-body"><div class="rc-reason">🔍 Identifying item…</div></div></div>';
+
+  try {
+    const imgEl = document.createElement('img');
+    imgEl.src = img.src;
+    await new Promise(r => imgEl.onload = r);
+    const predictions = await tfModel.classify(imgEl);
+    const top = predictions[0];
+    const query = classToQuery(top.className);
+    const rule = findRule(query);
+    const confidence = Math.round(top.probability * 100);
+    const detected = `${top.className.split(',')[0]} (${confidence}% confidence)`;
+    camResult.innerHTML = `
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;padding:0 4px">
+        Detected: <strong>${esc(detected)}</strong>
+      </div>
+      ${rule ? renderCard(rule, query) : renderNotFound(top.className)}`;
+  } catch(err){
+    camResult.innerHTML = '<div class="result-card"><div class="rc-body"><div class="rc-reason">Could not identify the item. Try a clearer photo or use text search.</div></div></div>';
+  }
+});
+
+// ─────────────────────────────────────────────
+// BATCH SORT
+// ─────────────────────────────────────────────
+function runBatch(){
+  const raw = document.getElementById('batch-input').value;
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  if(!lines.length) return;
+
+  const results = lines.map(line => ({
+    name: line,
+    rule: findRule(line),
+  }));
+
+  // Summary counts
+  const counts = {green:0, brown:0, black:0, special:0, unknown:0};
+  results.forEach(({rule}) => {
+    if(!rule) counts.unknown++;
+    else counts[rule.b === 'conditional' ? 'special' : rule.b]++;
+  });
+
+  const sumEl = document.getElementById('batch-summary');
+  const summaryPills = [
+    counts.green  && `<span class="sum-pill" style="background:var(--g-l);color:var(--g)">♻️ Green: ${counts.green}</span>`,
+    counts.brown  && `<span class="sum-pill" style="background:var(--b-l);color:var(--b)">🍂 Brown: ${counts.brown}</span>`,
+    counts.black  && `<span class="sum-pill" style="background:var(--k-l);color:var(--k-m)">🗑️ Black: ${counts.black}</span>`,
+    counts.special && `<span class="sum-pill" style="background:#fff3cd;color:#b07d00">⚠️ Special: ${counts.special}</span>`,
+    counts.unknown && `<span class="sum-pill" style="background:var(--bdr);color:var(--muted)">❓ Unknown: ${counts.unknown}</span>`,
+  ].filter(Boolean);
+  sumEl.innerHTML = summaryPills.join('');
+
+  const listEl = document.getElementById('batch-results');
+  listEl.innerHTML = results.map(({name, rule}) => {
+    if(!rule) return `<div class="batch-row">
+      <div class="b-dot" style="background:#ccc"></div>
+      <div class="b-name">${esc(name)}</div>
+      <span class="b-bin black">Unknown</span>
+    </div>`;
+    const cfg = BIN_CONFIG[rule.b] || BIN_CONFIG.black;
+    const cls = rule.b === 'conditional' ? 'special' : rule.b;
+    return `<div class="batch-row">
+      <div class="b-dot" style="background:${cfg.dot}"></div>
+      <div class="b-name">${esc(name)}</div>
+      <span class="b-bin ${cls}">${cfg.emoji} ${cfg.label.split(' ')[0]} ${cfg.label.split(' ')[1]}</span>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────
+// GUIDE PAGE
+// ─────────────────────────────────────────────
+function buildGuide(){
+  const el = document.getElementById('guide-content');
+  el.innerHTML = GUIDE_DATA.map((g,i) => `
+    <div class="guide-bin">
+      <div class="guide-head" onclick="toggleGuide(${i})">
+        <span class="guide-emoji">${g.emoji}</span>
+        <span class="guide-title">${g.label}</span>
+        <svg class="guide-chevron" id="chev-${i}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="guide-body" id="gbody-${i}">
+        <div style="font-size:12px;font-weight:600;color:var(--muted);padding:10px 0 4px">${g.cost}</div>
+        ${g.yes.length ? `<div class="guide-section">
+          <div class="guide-section-title yes">✅ Put these in</div>
+          <ul class="guide-items">${g.yes.map(x=>`<li>${x}</li>`).join('')}</ul>
+        </div>` : ''}
+        ${g.no.length ? `<div class="guide-section">
+          <div class="guide-section-title no">❌ Keep these out</div>
+          <ul class="guide-items">${g.no.map(x=>`<li>${x}</li>`).join('')}</ul>
+        </div>` : ''}
+      </div>
+    </div>`).join('');
+}
+function toggleGuide(i){
+  const body = document.getElementById(`gbody-${i}`);
+  const chev = document.getElementById(`chev-${i}`);
+  const open = body.classList.toggle('open');
+  chev.style.transform = open ? 'rotate(180deg)' : '';
+}
+buildGuide();
+
+// ─────────────────────────────────────────────
+// NAV
+// ─────────────────────────────────────────────
+function showPage(id, btn){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(id === 'camera' && !tfReady) loadTF();
+}
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ─────────────────────────────────────────────
+// SERVICE WORKER REGISTRATION
+// ─────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
